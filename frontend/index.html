@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Country Explorer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f5f5f0;
+      --surface: #ffffff;
+      --border: #e2e2dc;
+      --text-primary: #1a1a18;
+      --text-secondary: #6b6b65;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --tag-bg: #eff6ff;
+      --tag-text: #1e40af;
+      --radius: 10px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+      min-height: 100vh;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    header h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    header .globe { font-size: 1.5rem; }
+
+    .subtitle {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-left: auto;
+    }
+
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    /* Search bar */
+    .search-wrap {
+      position: relative;
+      margin-bottom: 1.75rem;
+    }
+
+    .search-wrap input {
+      width: 100%;
+      padding: 0.75rem 1rem 0.75rem 2.75rem;
+      font-size: 0.95rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .search-wrap input:focus { border-color: var(--accent); }
+
+    .search-icon {
+      position: absolute;
+      left: 0.9rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-secondary);
+      font-size: 1rem;
+      pointer-events: none;
+    }
+
+    /* Stats bar */
+    .stats {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-bottom: 1rem;
+    }
+
+    /* Country grid */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 1rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.85rem 1rem;
+      cursor: pointer;
+      transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      box-shadow: var(--shadow);
+    }
+
+    .card:hover {
+      border-color: var(--accent);
+      box-shadow: 0 4px 12px rgba(37,99,235,0.12);
+      transform: translateY(-1px);
+    }
+
+    .card-name {
+      font-size: 0.9rem;
+      font-weight: 500;
+      line-height: 1.3;
+    }
+
+    .card-code {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      font-family: monospace;
+    }
+
+    /* Modal overlay */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.35);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border-radius: 14px;
+      width: 100%;
+      max-width: 460px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+      overflow: hidden;
+      animation: slideUp 0.2s ease;
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .modal-flag {
+      width: 100%;
+      height: 180px;
+      object-fit: cover;
+      background: var(--bg);
+      display: block;
+    }
+
+    .modal-flag-placeholder {
+      width: 100%;
+      height: 180px;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3rem;
+    }
+
+    .modal-body { padding: 1.5rem; }
+
+    .modal-name {
+      font-size: 1.4rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.25rem;
+    }
+
+    .modal-code {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-family: monospace;
+      background: var(--tag-bg);
+      color: var(--tag-text);
+      padding: 0.2rem 0.55rem;
+      border-radius: 99px;
+      margin-bottom: 1.25rem;
+    }
+
+    .modal-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+    .stat-box {
+      background: var(--bg);
+      border-radius: 8px;
+      padding: 0.75rem;
+    }
+
+    .stat-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-secondary);
+      margin-bottom: 0.25rem;
+    }
+
+    .stat-value {
+      font-size: 1rem;
+      font-weight: 500;
+    }
+
+    .modal-close {
+      float: right;
+      background: none;
+      border: none;
+      font-size: 1.3rem;
+      cursor: pointer;
+      color: var(--text-secondary);
+      line-height: 1;
+      padding: 0.1rem 0.3rem;
+      border-radius: 4px;
+      transition: background 0.1s;
+    }
+
+    .modal-close:hover { background: var(--bg); }
+
+    .modal-header-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+    }
+
+    /* Loading / error states */
+    .state-msg {
+      text-align: center;
+      padding: 4rem 1rem;
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 28px;
+      height: 28px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin-bottom: 0.75rem;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+
+    .modal-spinner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem;
+      gap: 0.75rem;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    .modal-error {
+      padding: 2rem;
+      text-align: center;
+      color: #b91c1c;
+      font-size: 0.9rem;
+    }
+
+    /* Flag link */
+    .flag-link {
+      display: inline-block;
+      margin-top: 1rem;
+      font-size: 0.8rem;
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .flag-link:hover { text-decoration: underline; }
+
+    /* API base url config */
+    .api-config {
+      margin-bottom: 1.5rem;
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .api-config label {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+
+    .api-config input {
+      flex: 1;
+      padding: 0.4rem 0.75rem;
+      font-size: 0.8rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text-primary);
+      outline: none;
+    }
+
+    .api-config input:focus { border-color: var(--accent); }
+
+    .api-config button {
+      padding: 0.4rem 0.9rem;
+      font-size: 0.8rem;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .api-config button:hover { background: var(--accent-hover); }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="globe">🌍</span>
+  <h1>Country Explorer</h1>
+  <span class="subtitle">Powered by Country Service API</span>
+</header>
+
+<main>
+  <!-- API base URL config (useful if running locally) -->
+  <div class="api-config">
+    <label for="api-url">API base URL</label>
+    <input id="api-url" type="text" value="http://localhost:8080" />
+    <button onclick="reloadWithBase()">Reload</button>
+  </div>
+
+  <!-- Search -->
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input id="search" type="text" placeholder="Search countries…" oninput="filterCountries()" />
+  </div>
+
+  <div id="stats" class="stats"></div>
+  <div id="content"></div>
+</main>
+
+<!-- Detail modal -->
+<div class="modal-overlay" id="modal-overlay" onclick="handleOverlayClick(event)">
+  <div class="modal" id="modal">
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<script>
+  let allCountries = [];
+  let apiBase = 'http://localhost:8080';
+
+  // ---- Initialisation ----
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const stored = localStorage.getItem('apiBase');
+    if (stored) {
+      apiBase = stored;
+      document.getElementById('api-url').value = stored;
+    }
+    loadCountries();
+  });
+
+  function reloadWithBase() {
+    apiBase = document.getElementById('api-url').value.replace(/\/$/, '');
+    localStorage.setItem('apiBase', apiBase);
+    loadCountries();
+  }
+
+  // ---- Data loading ----
+
+  async function loadCountries() {
+    showLoading();
+    try {
+      const res = await fetch(`${apiBase}/countries/`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      allCountries = data.countries || [];
+      renderGrid(allCountries);
+    } catch (err) {
+      showError(`Could not reach the Country Service at <strong>${apiBase}</strong>.<br>
+        Make sure the service is running and the API base URL is correct.<br>
+        <small style="opacity:0.7">${err.message}</small>`);
+    }
+  }
+
+  async function loadCountryDetail(name) {
+    showModalLoading();
+    openModal();
+    try {
+      const res = await fetch(`${apiBase}/countries/${encodeURIComponent(name)}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const detail = await res.json();
+      renderModal(detail);
+    } catch (err) {
+      showModalError(`Failed to load details for <strong>${name}</strong>.<br>
+        <small style="opacity:0.7">${err.message}</small>`);
+    }
+  }
+
+  // ---- Rendering ----
+
+  function renderGrid(countries) {
+    const content = document.getElementById('content');
+    const stats = document.getElementById('stats');
+
+    if (countries.length === 0) {
+      stats.textContent = '';
+      content.innerHTML = `<div class="state-msg">No countries match your search.</div>`;
+      return;
+    }
+
+    stats.textContent = `${countries.length} ${countries.length === 1 ? 'country' : 'countries'}`;
+
+    const cards = countries.map(c => `
+      <div class="card" onclick="loadCountryDetail('${escHtml(c.name)}')">
+        <div class="card-name">${escHtml(c.name)}</div>
+        <div class="card-code">${escHtml(c.country_code)}</div>
+      </div>
+    `).join('');
+
+    content.innerHTML = `<div class="grid">${cards}</div>`;
+  }
+
+  function renderModal(detail) {
+    const pop = Number(detail.population).toLocaleString();
+    const flagHtml = detail.flag_file_url
+      ? `<img class="modal-flag" src="${escHtml(detail.flag_file_url)}" alt="Flag of ${escHtml(detail.name)}" />`
+      : `<div class="modal-flag-placeholder">🏳️</div>`;
+
+    document.getElementById('modal-content').innerHTML = `
+      ${flagHtml}
+      <div class="modal-body">
+        <div class="modal-header-row">
+          <div>
+            <div class="modal-name">${escHtml(detail.name)}</div>
+            <span class="modal-code">${escHtml(detail.country_code)}</span>
+          </div>
+          <button class="modal-close" onclick="closeModal()" title="Close">✕</button>
+        </div>
+        <div class="modal-stats">
+          <div class="stat-box">
+            <div class="stat-label">Capital</div>
+            <div class="stat-value">${escHtml(detail.capital || '—')}</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Population</div>
+            <div class="stat-value">${pop}</div>
+          </div>
+        </div>
+        ${detail.flag_file_url
+          ? `<a class="flag-link" href="${escHtml(detail.flag_file_url)}" target="_blank" rel="noopener">View full flag ↗</a>`
+          : ''}
+      </div>
+    `;
+  }
+
+  // ---- State helpers ----
+
+  function showLoading() {
+    document.getElementById('stats').textContent = '';
+    document.getElementById('content').innerHTML = `
+      <div class="state-msg">
+        <div class="spinner"></div><br>Loading countries…
+      </div>`;
+  }
+
+  function showError(msg) {
+    document.getElementById('content').innerHTML = `
+      <div class="state-msg">
+        <div class="error-icon">⚠️</div>
+        <div>${msg}</div>
+      </div>`;
+  }
+
+  function showModalLoading() {
+    document.getElementById('modal-content').innerHTML = `
+      <div class="modal-spinner">
+        <div class="spinner"></div>
+        Loading…
+      </div>`;
+  }
+
+  function showModalError(msg) {
+    document.getElementById('modal-content').innerHTML = `
+      <div class="modal-error">⚠️ ${msg}</div>`;
+  }
+
+  // ---- Modal ----
+
+  function openModal() {
+    document.getElementById('modal-overlay').classList.add('open');
+    document.addEventListener('keydown', handleEsc);
+  }
+
+  function closeModal() {
+    document.getElementById('modal-overlay').classList.remove('open');
+    document.removeEventListener('keydown', handleEsc);
+  }
+
+  function handleOverlayClick(e) {
+    if (e.target === document.getElementById('modal-overlay')) closeModal();
+  }
+
+  function handleEsc(e) {
+    if (e.key === 'Escape') closeModal();
+  }
+
+  // ---- Search / filter ----
+
+  function filterCountries() {
+    const q = document.getElementById('search').value.toLowerCase().trim();
+    const filtered = q
+      ? allCountries.filter(c =>
+          c.name.toLowerCase().includes(q) || c.country_code.toLowerCase().includes(q))
+      : allCountries;
+    renderGrid(filtered);
+  }
+
+  // ---- Utils ----
+
+  function escHtml(str) {
+    if (str == null) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+</script>
+</body>
+</html>

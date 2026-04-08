@@ -1,0 +1,3 @@
+com\example\countryservice\service\CountryServiceTest.class
+com\example\countryservice\controller\CountryControllerTest.class
+com\example\countryservice\service\RestCountriesClientTest.class
